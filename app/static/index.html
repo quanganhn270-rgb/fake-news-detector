@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hệ thống Phát hiện Tin giả AI - Kiểm tra độ tin cậy của tin tức bằng trí tuệ nhân tạo">
+    <title>🛡️ Hệ thống Phát hiện Tin giả | Fake News Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* ====== CSS RESET & ROOT ====== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --gradient-hero: linear-gradient(135deg, #3b82f6 0%, #06b6d4 50%, #8b5cf6 100%);
+            --gradient-card: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(6, 182, 212, 0.05));
+            --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.15);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* ====== ANIMATED BACKGROUND ====== */
+        .bg-animation {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        .bg-animation .orb {
+            position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15;
+            animation: float 20s ease-in-out infinite;
+        }
+        .bg-animation .orb:nth-child(1) { width: 600px; height: 600px; background: var(--accent-blue); top: -10%; left: -5%; animation-delay: 0s; }
+        .bg-animation .orb:nth-child(2) { width: 500px; height: 500px; background: var(--accent-purple); top: 50%; right: -10%; animation-delay: -7s; }
+        .bg-animation .orb:nth-child(3) { width: 400px; height: 400px; background: var(--accent-cyan); bottom: -5%; left: 30%; animation-delay: -14s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -50px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        /* ====== LAYOUT ====== */
+        .container {
+            position: relative; z-index: 1;
+            max-width: 900px; margin: 0 auto; padding: 24px 20px;
+        }
+
+        /* ====== HEADER ====== */
+        .header {
+            text-align: center; padding: 48px 0 32px;
+        }
+        .header .shield-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 72px; height: 72px; border-radius: 20px;
+            background: var(--gradient-hero); box-shadow: var(--shadow-glow);
+            font-size: 36px; margin-bottom: 20px;
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.2); }
+            50% { box-shadow: 0 0 60px rgba(59, 130, 246, 0.4); }
+        }
+        .header h1 {
+            font-size: 2rem; font-weight: 800; letter-spacing: -0.5px;
+            background: var(--gradient-hero); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .header p {
+            color: var(--text-secondary); font-size: 0.95rem; margin-top: 8px;
+            max-width: 520px; margin-inline: auto;
+        }
+
+        /* ====== SYSTEM STATUS BAR ====== */
+        .status-bar {
+            display: flex; gap: 12px; justify-content: center; margin: 20px 0 32px;
+            flex-wrap: wrap;
+        }
+        .status-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 500;
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            color: var(--text-secondary); transition: var(--transition);
+        }
+        .status-chip .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            animation: blink 2s ease-in-out infinite;
+        }
+        .status-chip .dot.green { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+        .status-chip .dot.amber { background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber); }
+        .status-chip .dot.red   { background: var(--accent-red);   box-shadow: 0 0 6px var(--accent-red);   }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        /* ====== TAB SWITCHER ====== */
+        .tab-bar {
+            display: flex; gap: 4px; padding: 4px;
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg); margin-bottom: 24px;
+        }
+        .tab-btn {
+            flex: 1; padding: 12px 16px; border: none; border-radius: var(--radius-md);
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            font-family: inherit; font-size: 0.875rem; font-weight: 600;
+            transition: var(--transition); display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+        }
+        .tab-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+        .tab-btn.active {
+            background: rgba(59, 130, 246, 0.15); color: var(--accent-blue);
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.1);
+        }
+
+        /* ====== INPUT CARD ====== */
+        .input-card {
+            background: var(--bg-card); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-xl); padding: 28px;
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: var(--transition);
+        }
+        .input-card:focus-within {
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 3px rgba(59, 130, 246, 0.08);
+        }
+
+        .input-label {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+            margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md); padding: 16px; color: var(--text-primary);
+            font-family: inherit; font-size: 0.95rem; resize: vertical;
+            transition: var(--transition); line-height: 1.7;
+        }
+        textarea { min-height: 140px; }
+        input[type="text"] { height: 52px; }
+        textarea:focus, input[type="text"]:focus {
+            outline: none; border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        textarea::placeholder, input[type="text"]::placeholder {
+            color: var(--text-muted); font-size: 0.9rem;
+        }
+
+        .url-input-group {
+            position: relative;
+        }
+        .url-input-group .url-icon {
+            position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); font-size: 1rem;
+        }
+        .url-input-group input {
+            padding-left: 42px;
+        }
+
+        /* ====== SUBMIT BUTTON ====== */
+        .submit-btn {
+            width: 100%; margin-top: 20px; padding: 16px 24px;
+            border: none; border-radius: var(--radius-md); cursor: pointer;
+            font-family: inherit; font-size: 1rem; font-weight: 700;
+            background: var(--gradient-hero); color: #fff;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: var(--transition); position: relative; overflow: hidden;
+        }
+        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(59, 130, 246, 0.35); }
+        .submit-btn:active { transform: translateY(0); }
+        .submit-btn:disabled {
+            opacity: 0.6; cursor: not-allowed; transform: none;
+            box-shadow: none;
+        }
+        .submit-btn .spinner {
+            width: 20px; height: 20px; border: 2.5px solid rgba(255,255,255,0.3);
+            border-top-color: #fff; border-radius: 50%;
+            animation: spin 0.7s linear infinite; display: none;
+        }
+        .submit-btn.loading .spinner { display: block; }
+        .submit-btn.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ====== RESULT CARD ====== */
+        .result-section {
+            margin-top: 28px;
+            animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .result-card {
+            background: var(--bg-card); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-xl); padding: 28px;
+            backdrop-filter: blur(20px); position: relative; overflow: hidden;
+        }
+        .result-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0;
+            height: 3px; border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+        .result-card.verdict-real::before    { background: var(--accent-green); }
+        .result-card.verdict-fake::before    { background: var(--accent-red);   }
+        .result-card.verdict-suspect::before { background: var(--accent-amber); }
+        .result-card.verdict-unknown::before { background: var(--accent-purple);}
+
+        .verdict-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 20px; border-radius: 100px;
+            font-size: 1rem; font-weight: 800; letter-spacing: 0.3px;
+        }
+        .verdict-badge.real    { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .verdict-badge.fake    { background: rgba(239, 68, 68, 0.15);  color: var(--accent-red);   border: 1px solid rgba(239, 68, 68, 0.3);  }
+        .verdict-badge.suspect { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .verdict-badge.unknown { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple);border: 1px solid rgba(139, 92, 246, 0.3); }
+
+        .confidence-bar-container {
+            margin-top: 20px;
+        }
+        .confidence-bar-container .label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .confidence-bar {
+            width: 100%; height: 8px; border-radius: 100px;
+            background: rgba(255, 255, 255, 0.06); overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%; border-radius: 100px; transition: width 1s ease-out;
+        }
+        .confidence-fill.green  { background: linear-gradient(90deg, #059669, #10b981); }
+        .confidence-fill.red    { background: linear-gradient(90deg, #dc2626, #ef4444); }
+        .confidence-fill.amber  { background: linear-gradient(90deg, #d97706, #f59e0b); }
+        .confidence-fill.purple { background: linear-gradient(90deg, #7c3aed, #8b5cf6); }
+
+        .reasoning-box {
+            margin-top: 20px; padding: 16px 20px;
+            background: rgba(0, 0, 0, 0.2); border-radius: var(--radius-md);
+            border-left: 3px solid var(--accent-blue);
+        }
+        .reasoning-box .title {
+            font-size: 0.75rem; font-weight: 700; color: var(--accent-blue);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+        .reasoning-box p {
+            font-size: 0.9rem; color: var(--text-secondary); line-height: 1.7;
+        }
+
+        /* ====== EVIDENCE CARDS ====== */
+        .evidence-section { margin-top: 20px; }
+        .evidence-section .section-title {
+            font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;
+        }
+        .evidence-item {
+            padding: 14px 18px; margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.15); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-md); transition: var(--transition);
+        }
+        .evidence-item:hover { border-color: rgba(59, 130, 246, 0.2); }
+        .evidence-item .ev-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 6px;
+        }
+        .evidence-item .ev-source {
+            font-size: 0.75rem; font-weight: 600; color: var(--accent-cyan);
+        }
+        .evidence-item .ev-score {
+            font-size: 0.7rem; font-weight: 700; padding: 3px 10px;
+            background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan);
+            border-radius: 100px;
+        }
+        .evidence-item .ev-text {
+            font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;
+            display: -webkit-box; -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical; overflow: hidden;
+        }
+
+        /* ====== ERROR BOX ====== */
+        .error-box {
+            margin-top: 20px; padding: 16px 20px;
+            background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: var(--radius-md); color: var(--accent-red);
+            font-size: 0.9rem;
+        }
+
+        /* ====== STATS FOOTER ====== */
+        .stats-bar {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+            margin-top: 32px;
+        }
+        .stat-card {
+            text-align: center; padding: 20px 12px;
+            background: var(--bg-glass); border: 1px solid var(--border-glass);
+            border-radius: var(--radius-lg); transition: var(--transition);
+        }
+        .stat-card:hover { border-color: rgba(59,130,246,0.2); transform: translateY(-2px); }
+        .stat-card .stat-value {
+            font-size: 1.5rem; font-weight: 800;
+            background: var(--gradient-hero); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .stat-card .stat-label {
+            font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;
+            text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        }
+
+        /* ====== FOOTER ====== */
+        .footer {
+            text-align: center; padding: 40px 0 24px;
+            font-size: 0.75rem; color: var(--text-muted);
+        }
+        .footer a { color: var(--accent-blue); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* ====== RESPONSIVE ====== */
+        @media (max-width: 640px) {
+            .container { padding: 16px 12px; }
+            .header h1 { font-size: 1.5rem; }
+            .input-card, .result-card { padding: 20px; }
+            .stats-bar { grid-template-columns: 1fr; }
+            .status-bar { gap: 8px; }
+        }
+
+        /* ====== HIDDEN UTILITY ====== */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- Animated Background Orbs -->
+<div class="bg-animation">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+</div>
+
+<div class="container">
+
+    <!-- ====== HEADER ====== -->
+    <header class="header">
+        <div class="shield-icon">🛡️</div>
+        <h1>Hệ thống Phát hiện Tin giả</h1>
+        <p>Kiểm tra độ tin cậy của tin tức bằng trí tuệ nhân tạo — Nhập URL bài báo hoặc dán nội dung văn bản để xác thực ngay.</p>
+    </header>
+
+    <!-- ====== SYSTEM STATUS ====== -->
+    <div class="status-bar" id="statusBar">
+        <div class="status-chip"><span class="dot green" id="dotGatekeeper"></span>Gatekeeper: Đang tải...</div>
+        <div class="status-chip"><span class="dot amber" id="dotRAG"></span>RAG Vector DB: Đang tải...</div>
+        <div class="status-chip"><span class="dot green"></span>Blacklist: <span id="blacklistCount">...</span> domains</div>
+    </div>
+
+    <!-- ====== TAB SWITCHER ====== -->
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="url" onclick="switchTab('url')">
+            🔗 Kiểm tra URL bài báo
+        </button>
+        <button class="tab-btn" data-tab="text" onclick="switchTab('text')">
+            📝 Kiểm tra văn bản
+        </button>
+    </div>
+
+    <!-- ====== INPUT FORMS ====== -->
+    <div class="input-card">
+        <!-- URL Input -->
+        <div id="urlTab">
+            <div class="input-label">🔗 Dán link URL bài báo cần kiểm tra</div>
+            <div class="url-input-group">
+                <span class="url-icon">🌐</span>
+                <input type="text" id="urlInput" placeholder="https://example.com/tin-tuc-bai-viet..." autocomplete="off">
+            </div>
+        </div>
+
+        <!-- Text Input -->
+        <div id="textTab" class="hidden">
+            <div class="input-label">📝 Dán nội dung văn bản cần xác thực</div>
+            <textarea id="textInput" placeholder="Dán toàn bộ nội dung bài viết hoặc đoạn văn bản cần kiểm tra vào đây...&#10;&#10;Ví dụ: &quot;Bộ Y tế vừa phát hiện virus biến thể mới có thể lây lan qua không khí trong bán kính 50m...&quot;"></textarea>
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="submitCheck()">
+            <span class="btn-text">🔍 Phân tích & Xác thực ngay</span>
+            <div class="spinner"></div>
+        </button>
+    </div>
+
+    <!-- ====== RESULTS ====== -->
+    <div id="resultSection" class="hidden"></div>
+
+    <!-- ====== STATS ====== -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-value" id="statWhitelist">-</div>
+            <div class="stat-label">Domain Tin Cậy</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="statBlacklist">-</div>
+            <div class="stat-label">Domain Chặn</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="statChecks">0</div>
+            <div class="stat-label">Lượt kiểm tra</div>
+        </div>
+    </div>
+
+    <!-- ====== FOOTER ====== -->
+    <footer class="footer">
+        <p>Fake News Detection System v1.0 — Powered by FastAPI + ChromaDB + HuggingFace AI</p>
+        <p style="margin-top:4px;">Tuân thủ nguyên tắc <strong>Precision-First</strong> &amp; <strong>Suy đoán Vô tội</strong></p>
+    </footer>
+
+</div>
+
+<script>
+    // ====== STATE ======
+    let checkCount = 0;
+    const API_BASE = '';  // Same origin
+
+    // ====== TAB SWITCHING ======
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+
+        document.getElementById('urlTab').classList.toggle('hidden', tab !== 'url');
+        document.getElementById('textTab').classList.toggle('hidden', tab !== 'text');
+    }
+
+    // ====== GET INPUT ======
+    function getInputText() {
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        if (activeTab === 'url') {
+            return document.getElementById('urlInput').value.trim();
+        } else {
+            return document.getElementById('textInput').value.trim();
+        }
+    }
+
+    // ====== SUBMIT CHECK ======
+    async function submitCheck() {
+        const text = getInputText();
+        if (!text) {
+            showError('Vui lòng nhập URL hoặc nội dung văn bản cần kiểm tra.');
+            return;
+        }
+
+        const btn = document.getElementById('submitBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        document.getElementById('resultSection').classList.add('hidden');
+
+        try {
+            const response = await fetch(`${API_BASE}/api/v1/predict`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.detail || `Server trả về lỗi HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            checkCount++;
+            document.getElementById('statChecks').textContent = checkCount;
+            renderResult(data);
+
+        } catch (error) {
+            showError(`Lỗi kết nối: ${error.message}. Hãy đảm bảo server đang chạy (uvicorn app.main:app --reload).`);
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    }
+
+    // ====== RENDER RESULT ======
+    function renderResult(data) {
+        const section = document.getElementById('resultSection');
+        const label = data.label;
+        const score = data.confidence_score;
+        const reasoning = data.reasoning;
+        const evidence = data.evidence_used || [];
+
+        // Determine verdict class
+        let verdictClass = 'unknown', badgeClass = 'unknown', barClass = 'purple', icon = '🔍';
+        if (label.includes('THẬT')) {
+            verdictClass = 'real'; badgeClass = 'real'; barClass = 'green'; icon = '✅';
+        } else if (label.includes('GIẢ') || label.includes('GIA')) {
+            verdictClass = 'fake'; badgeClass = 'fake'; barClass = 'red'; icon = '🚨';
+        } else if (label.includes('NGHI')) {
+            verdictClass = 'suspect'; badgeClass = 'suspect'; barClass = 'amber'; icon = '⚠️';
+        }
+
+        let evidenceHTML = '';
+        if (evidence.length > 0) {
+            evidenceHTML = `
+                <div class="evidence-section">
+                    <div class="section-title">📚 Bài báo đối chứng từ cơ sở dữ liệu</div>
+                    ${evidence.map(ev => `
+                        <div class="evidence-item">
+                            <div class="ev-header">
+                                <span class="ev-source">📰 ${ev.metadata?.source || 'Không rõ'} ${ev.metadata?.title ? '— ' + ev.metadata.title : ''}</span>
+                                <span class="ev-score">${(ev.similarity_score * 100).toFixed(1)}% khớp</span>
+                            </div>
+                            <div class="ev-text">${ev.document ? ev.document.substring(0, 300) + '...' : 'Không có nội dung'}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        section.innerHTML = `
+            <div class="result-section">
+                <div class="result-card verdict-${verdictClass}">
+                    <div class="verdict-badge ${badgeClass}">${icon} ${label}</div>
+
+                    <div class="confidence-bar-container">
+                        <div class="label">
+                            <span>Độ tin cậy phân tích</span>
+                            <span style="font-weight:700; color: var(--text-primary)">${(score * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill ${barClass}" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="reasoning-box">
+                        <div class="title">💡 Phân tích chi tiết</div>
+                        <p>${reasoning}</p>
+                    </div>
+
+                    ${evidenceHTML}
+                </div>
+            </div>
+        `;
+
+        section.classList.remove('hidden');
+
+        // Animate confidence bar
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                section.querySelector('.confidence-fill').style.width = `${score * 100}%`;
+            });
+        });
+
+        // Scroll to result
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ====== SHOW ERROR ======
+    function showError(message) {
+        const section = document.getElementById('resultSection');
+        section.innerHTML = `
+            <div class="result-section">
+                <div class="error-box">⚠️ ${message}</div>
+            </div>
+        `;
+        section.classList.remove('hidden');
+    }
+
+    // ====== FETCH SYSTEM STATUS ======
+    async function fetchStatus() {
+        try {
+            const res = await fetch(`${API_BASE}/`);
+            const data = await res.json();
+
+            const gk = data.stations?.station_1_gatekeeper;
+            const rag = data.stations?.station_3b_rag_vectordb;
+
+            const dotGK = document.getElementById('dotGatekeeper');
+            const dotRAG = document.getElementById('dotRAG');
+
+            if (gk === 'Active') {
+                dotGK.className = 'dot green';
+                dotGK.parentElement.innerHTML = `<span class="dot green"></span>Gatekeeper: Hoạt động`;
+            } else {
+                dotGK.className = 'dot red';
+                dotGK.parentElement.innerHTML = `<span class="dot red"></span>Gatekeeper: Lỗi`;
+            }
+
+            if (rag === 'Active') {
+                dotRAG.className = 'dot green';
+                dotRAG.parentElement.innerHTML = `<span class="dot green"></span>RAG Vector DB: Hoạt động`;
+            } else {
+                dotRAG.className = 'dot amber';
+                dotRAG.parentElement.innerHTML = `<span class="dot amber"></span>RAG Vector DB: Chưa sẵn sàng`;
+            }
+
+            // Fetch stats
+            const statsRes = await fetch(`${API_BASE}/api/v1/stats`);
+            if (statsRes.ok) {
+                const stats = await statsRes.json();
+                document.getElementById('statWhitelist').textContent = stats.whitelist_count?.toLocaleString() || '-';
+                document.getElementById('statBlacklist').textContent = stats.blacklist_count?.toLocaleString() || '-';
+                document.getElementById('blacklistCount').textContent = stats.blacklist_count?.toLocaleString() || '...';
+            }
+        } catch (e) {
+            console.log('Server chưa sẵn sàng:', e.message);
+        }
+    }
+
+    // ====== KEYBOARD SHORTCUT ======
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            submitCheck();
+        }
+    });
+
+    // Init
+    fetchStatus();
+</script>
+</body>
+</html>
